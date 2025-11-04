@@ -1,5 +1,6 @@
 """Config flow for Dawarich integration."""
 
+"""https://aarongodfrey.dev/home%20automation/building_a_home_assistant_custom_component_part_4/"""
 import logging
 from collections.abc import Mapping
 from typing import Any
@@ -33,6 +34,27 @@ class DawarichConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Dawarich."""
 
     VERSION = 2
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
+        if user_input is not None:
+            # TODO: process user input
+            self.async_set_unique_id(user_id)
+            self._abort_if_unique_id_mismatch()
+            return self.async_update_reload_and_abort(
+                self._get_reconfigure_entry(),
+                data_updates=data,
+            )
+
+        user_input = user_input or {}
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("input_parameter"): str,
+                    vol.Required(CONF_HOST, default=user_input.get(CONF_HOST, "")): str,
+                }
+            ),
+        )
 
     def __init__(self):
         """Initialize Dawarich config flow."""
@@ -184,3 +206,5 @@ class DawarichConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return {CONF_API_KEY: "invalid api key"}
             case _:
                 return {"base": "connection_error"}
+
+        return await self.async_step_user()
