@@ -37,21 +37,53 @@ class DawarichConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            # TODO: process user input
-            self.async_set_unique_id(user_id)
-            self._abort_if_unique_id_mismatch()
-            return self.async_update_reload_and_abort(
-                self._get_reconfigure_entry(),
-                data_updates=data,
+            self._config = {
+                CONF_HOST: f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}",
+                CONF_NAME: user_input[CONF_NAME],
+                CONF_SSL: user_input[CONF_SSL],
+                CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+                CONF_DEVICE: user_input.get(CONF_DEVICE),
+            }
+
+            self._async_abort_entries_match(
+                {
+                    CONF_HOST: self._config[CONF_HOST],
+                    CONF_API_KEY: self._config.get(CONF_API_KEY),
+                }
             )
+
+            if not (errors := await self._async_test_connect()):
+                return self.async_create_entry(
+                    title=self._config[CONF_NAME], data=self._config
+                )
+
+            if CONF_API_KEY in errors:
+                return await self.async_step_api_key()
 
         user_input = user_input or {}
         return self.async_show_form(
-            step_id="reconfigure",
+            step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required("input_parameter"): str,
                     vol.Required(CONF_HOST, default=user_input.get(CONF_HOST, "")): str,
+                    vol.Required(
+                        CONF_PORT, default=user_input.get(CONF_PORT, DEFAULT_PORT)
+                    ): vol.Coerce(int),
+                    vol.Required(
+                        CONF_NAME, default=user_input.get(CONF_NAME, DEFAULT_NAME)
+                    ): str,
+                    vol.Optional(
+                        CONF_DEVICE, msg="If you want to track your device"
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="device_tracker")
+                    ),
+                    vol.Required(
+                        CONF_SSL, default=user_input.get(CONF_SSL, DEFAULT_SSL)
+                    ): bool,
+                    vol.Required(
+                        CONF_VERIFY_SSL,
+                        default=user_input.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                    ): bool,
                 }
             ),
         )
